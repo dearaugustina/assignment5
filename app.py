@@ -73,7 +73,7 @@
     "years = [int(year) for year in df.columns[1:]]  # Convert year columns to integers\n",
     "\n",
     "# Initialize the Dash app\n",
-    "app = Dash(__name__, external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])\n",
+    "app = dash.Dash(__name__)\n",
     "app.title = 'GDP Per Capita Analysis' \n",
     "server = app.server"
    ]
