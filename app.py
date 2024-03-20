@@ -1,248 +1,139 @@
-{
- "cells": [
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "### Assignment #5: Callbacks\n",
-    "\n",
-    "DS4003 | Spring 2024\n",
-    "\n",
-    "Objective: Practice adding callbacks to Dash apps.\n",
-    " \n",
-    "\n",
-    "Task:\n",
-    "(1) Build an app that contains the following components user the gapminder dataset: `gdp_pcap.csv`. \n",
-    "TASK 1 is the same as ASSIGNMENT 4. You are welcome to update your code. \n",
-    "\n",
-    "UI Components:\n",
-    "A dropdown menu that allows the user to select `country`\n",
-    "- The dropdown should allow the user to select multiple countries\n",
-    "- The options should populate from the dataset (not be hard-coded)\n",
-    "A slider that allows the user to select `year`\n",
-    "- The slider should allow the user to select a range of years\n",
-    "- The range should be from the minimum year in the dataset to the maximum year in the dataset\n",
-    "A graph that displays the `gdpPercap` for the selected countries over the selected years\n",
-    "- The graph should display the gdpPercap for each country as a line\n",
-    "- Each country should have a unique color\n",
-    "- The graph should have a title and axis labels in reader friendly format\n",
-    " \n",
-    "\n",
-    "(2) Write Callback functions for the slider and dropdown to interact with the graph\n",
-    "\n",
-    "This means that when a user updates a widget the graph should update accordingly.\n",
-    "The widgets should be independent of each other. \n",
-    "Layout:\n",
-    "- Use a stylesheet\n",
-    "- There should be a title at the top of the page\n",
-    "- There should be a description of the data and app below the title (3-5 sentences)\n",
-    "- The dropdown and slider should be side by side above the graph and take up the full width of the page\n",
-    "- The graph should be below the dropdown and slider and take up the full width of the page\n",
-    "Submission:\n",
-    "- Deploy your app on Render. \n",
-    "- In Canvas, submit the URL to your public Github Repo (made specifically for this assignment)\n",
-    "- The readme in your GitHub repo should contain the URL to your Render page. "
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "Load and Preprocess the Dataset"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 1,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# import dependencies\n",
-    "import pandas as pd\n",
-    "import plotly.express as px\n",
-    "from dash import Dash, dcc, html, Input, Output\n",
-    "import plotly.graph_objs as go\n",
-    "\n",
-    "# Load the dataset\n",
-    "df = pd.read_csv('gdp_pcap.csv')\n",
-    "\n",
-    "# extract unique countries for dropdown options\n",
-    "countries = df['country'].unique()\n",
-    "\n",
-    "# determine the range of years for the slider\n",
-    "years = [int(year) for year in df.columns[1:]]  # Convert year columns to integers\n",
-    "\n",
-    "# Initialize the Dash app\n",
-    "app = dash.Dash(__name__)\n",
-    "app.title = 'GDP Per Capita Analysis' \n",
-    "server = app.server"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 2,
-   "metadata": {},
-   "outputs": [
-    {
-     "data": {
-      "text/html": [
-       "\n",
-       "        <iframe\n",
-       "            width=\"100%\"\n",
-       "            height=\"650\"\n",
-       "            src=\"http://127.0.0.1:8050/\"\n",
-       "            frameborder=\"0\"\n",
-       "            allowfullscreen\n",
-       "            \n",
-       "        ></iframe>\n",
-       "        "
-      ],
-      "text/plain": [
-       "<IPython.lib.display.IFrame at 0x12c1e2130>"
-      ]
-     },
-     "metadata": {},
-     "output_type": "display_data"
-    }
-   ],
-   "source": [
-    "app.layout = html.Div([\n",
-    "    html.H1('GDP Per Capita Analysis', style={'textAlign': 'center'}),\n",
-    "    html.P('''\n",
-    "        This interactive dashboard allows users to explore the GDP per capita across various countries and years, \n",
-    "        using data from the Gapminder Foundation. Select multiple countries and a range of years to see how \n",
-    "        GDP per capita has changed over time. The graph below will display the GDP per capita trends for each \n",
-    "        selected country, illustrating economic growth and development patterns.\n",
-    "    ''', style={'textAlign': 'center'}),\n",
-    "\n",
-    "\n",
-    "html.Div([\n",
-    "    html.Div([  # Container for the dropdown\n",
-    "        dcc.Dropdown(\n",
-    "            id='country-dropdown',\n",
-    "            options=[{'label': country, 'value': country} for country in countries],\n",
-    "            value=['USA'],  # Default selection\n",
-    "            multi=True\n",
-    "        )\n",
-    "    ], style={'width': '10%', 'display': 'inline-block', 'minWidth': '200px'}),  \n",
-    "\n",
-    "    html.Div([  # Container for the slider\n",
-    "        dcc.RangeSlider(\n",
-    "            id='year-slider',\n",
-    "            min=int(years[0]),  # min = the first year in the dataset\n",
-    "            max=int(years[-1]),  # max = the last year in the dataset\n",
-    "            value=[1975, 2025],  # Default selected range\n",
-    "            marks={str(year): str(year) for year in range(int(years[0]), int(years[-1])+1, 25)},\n",
-    "            step=1  # Slider moves in increments of 1 year\n",
-    "        )\n",
-    "    ], style={'width': '88%', 'display': 'inline-block', 'verticalAlign': 'top'}),\n",
-    "], style={'display': 'flex', 'justifyContent': 'space-between'}) \n",
-    "\n",
-    "])\n",
-    "\n",
-    "# add Graph component in the layout\n",
-    "app.layout.children.append(\n",
-    "    html.Div([\n",
-    "        dcc.Graph(\n",
-    "            id='gdp-graph',  \n",
-    "            figure={\n",
-    "                'data': [],\n",
-    "                'layout': go.Layout(\n",
-    "                    title='GDP Per Capita Over Time',\n",
-    "                    xaxis={'title': 'Year'},\n",
-    "                    yaxis={'title': 'GDP Per Capita (USD)'},\n",
-    "                    hovermode='closest'\n",
-    "                )\n",
-    "            }\n",
-    "        )\n",
-    "    ])\n",
-    ")\n",
-    "\n",
-    "# convert GDP per capita values from strings to floats\n",
-    "def gdp_to_float(gdp_str):\n",
-    "    if isinstance(gdp_str, str):\n",
-    "        if 'k' in gdp_str:\n",
-    "            return float(gdp_str.replace('k', '')) * 1000\n",
-    "        else:\n",
-    "            return float(gdp_str)\n",
-    "    return gdp_str\n",
-    "\n",
-    "@app.callback(\n",
-    "    Output('gdp-graph', 'figure'),\n",
-    "    [Input('country-dropdown', 'value'), Input('year-slider', 'value')]\n",
-    ")\n",
-    "\n",
-    "def update_graph(selected_countries, selected_years):\n",
-    "    traces = []\n",
-    "    for country in selected_countries:\n",
-    "        country_df = df[df['country'] == country]\n",
-    "        # filter for the selected years and convert all GDP values to float\n",
-    "        years = list(range(selected_years[0], selected_years[1] + 1))\n",
-    "        gdp_values = []\n",
-    "        for year in years:\n",
-    "            year_str = str(year)\n",
-    "            if year_str in country_df.columns:\n",
-    "                gdp_values.append(gdp_to_float(country_df.iloc[0][year_str]))\n",
-    "            else:\n",
-    "                gdp_values.append(None) \n",
-    "\n",
-    "        traces.append(go.Scatter(\n",
-    "            x=years,\n",
-    "            y=gdp_values,\n",
-    "            mode='lines+markers',\n",
-    "            name=country\n",
-    "        ))\n",
-    "\n",
-    "    # layout for the updated figure\n",
-    "    layout = go.Layout(\n",
-    "        title={\n",
-    "            'text': 'GDP Per Capita Over Selected Years',\n",
-    "            'y': 0.9,\n",
-    "            'x': 0.5,\n",
-    "            'xanchor': 'center',\n",
-    "            'yanchor': 'top'\n",
-    "        },\n",
-    "        xaxis={'title': 'Year'},\n",
-    "        yaxis={\n",
-    "            'title': 'GDP Per Capita (USD)',\n",
-    "            'title_standoff': 25,\n",
-    "            'showgrid': False,\n",
-    "            'tickmode': 'auto',\n",
-    "            'tickformat': ',.0f',\n",
-    "            'automargin': True,\n",
-    "        },\n",
-    "        margin={'l': 40, 'b': 40, 't': 80, 'r': 10},\n",
-    "        legend={'x': 0, 'y': 1},\n",
-    "        hovermode='closest'\n",
-    "    )\n",
-    "\n",
-    "    return {'data': traces, 'layout': layout}\n",
-    "\n",
-    "\n",
-    "if __name__ == '__main__':\n",
-    "    app.run_server(debug=True)"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "ds4003",
-   "language": "python",
-   "name": "python3"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.8.18"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 2
-}
+# import dependencies
+import pandas as pd
+import plotly.express as px
+from dash import Dash, dcc, html, Input, Output
+import plotly.graph_objs as go
+
+# Load the dataset
+df = pd.read_csv('gdp_pcap.csv')
+
+# extract unique countries for dropdown options
+countries = df['country'].unique()
+
+# determine the range of years for the slider
+years = [int(year) for year in df.columns[1:]]  # Convert year columns to integers
+
+# Initialize the Dash app
+app = dash.Dash(__name__)
+app.title = 'GDP Per Capita Analysis'
+server = app.server
+
+
+
+
+
+app.layout = html.Div([
+    html.H1('GDP Per Capita Analysis', style={'textAlign': 'center'}),
+    html.P('''
+        This interactive dashboard allows users to explore the GDP per capita across various countries and years, 
+        using data from the Gapminder Foundation. Select multiple countries and a range of years to see how 
+        GDP per capita has changed over time. The graph below will display the GDP per capita trends for each 
+        selected country, illustrating economic growth and development patterns.
+    ''', style={'textAlign': 'center'}),
+
+
+html.Div([
+    html.Div([  # Container for the dropdown
+        dcc.Dropdown(
+            id='country-dropdown',
+            options=[{'label': country, 'value': country} for country in countries],
+            value=['USA'],  # Default selection
+            multi=True
+        )
+    ], style={'width': '10%', 'display': 'inline-block', 'minWidth': '200px'}),  
+
+    html.Div([  # Container for the slider
+        dcc.RangeSlider(
+            id='year-slider',
+            min=int(years[0]),  # min = the first year in the dataset
+            max=int(years[-1]),  # max = the last year in the dataset
+            value=[1975, 2025],  # Default selected range
+            marks={str(year): str(year) for year in range(int(years[0]), int(years[-1])+1, 25)},
+            step=1  # Slider moves in increments of 1 year
+        )
+    ], style={'width': '88%', 'display': 'inline-block', 'verticalAlign': 'top'}),
+], style={'display': 'flex', 'justifyContent': 'space-between'}) 
+
+])
+
+# add Graph component in the layout
+app.layout.children.append(
+    html.Div([
+        dcc.Graph(
+            id='gdp-graph',  
+            figure={
+                'data': [],
+                'layout': go.Layout(
+                    title='GDP Per Capita Over Time',
+                    xaxis={'title': 'Year'},
+                    yaxis={'title': 'GDP Per Capita (USD)'},
+                    hovermode='closest'
+                )
+            }
+        )
+    ])
+)
+
+# convert GDP per capita values from strings to floats
+def gdp_to_float(gdp_str):
+    if isinstance(gdp_str, str):
+        if 'k' in gdp_str:
+            return float(gdp_str.replace('k', '')) * 1000
+        else:
+            return float(gdp_str)
+    return gdp_str
+
+@app.callback(
+    Output('gdp-graph', 'figure'),
+    [Input('country-dropdown', 'value'), Input('year-slider', 'value')]
+)
+
+def update_graph(selected_countries, selected_years):
+    traces = []
+    for country in selected_countries:
+        country_df = df[df['country'] == country]
+        # filter for the selected years and convert all GDP values to float
+        years = list(range(selected_years[0], selected_years[1] + 1))
+        gdp_values = []
+        for year in years:
+            year_str = str(year)
+            if year_str in country_df.columns:
+                gdp_values.append(gdp_to_float(country_df.iloc[0][year_str]))
+            else:
+                gdp_values.append(None) 
+
+        traces.append(go.Scatter(
+            x=years,
+            y=gdp_values,
+            mode='lines+markers',
+            name=country
+        ))
+
+    # layout for the updated figure
+    layout = go.Layout(
+        title={
+            'text': 'GDP Per Capita Over Selected Years',
+            'y': 0.9,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        xaxis={'title': 'Year'},
+        yaxis={
+            'title': 'GDP Per Capita (USD)',
+            'title_standoff': 25,
+            'showgrid': False,
+            'tickmode': 'auto',
+            'tickformat': ',.0f',
+            'automargin': True,
+        },
+        margin={'l': 40, 'b': 40, 't': 80, 'r': 10},
+        legend={'x': 0, 'y': 1},
+        hovermode='closest'
+    )
+
+    return {'data': traces, 'layout': layout}
+
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
