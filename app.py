@@ -14,7 +14,7 @@ countries = df['country'].unique()
 years = [int(year) for year in df.columns[1:]]  # Convert year columns to integers
 
 # Initialize the Dash app
-app = dash.Dash(__name__)
+app = Dash(__name__)
 app.title = 'GDP Per Capita Analysis'
 server = app.server
 
